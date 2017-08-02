@@ -1,9 +1,16 @@
 # clear objects from the workspace ------
 rm(list=ls(all=TRUE))
 #options(OutDec = ".")
-set.seed(sub("([[:digit:]]*.)","",proc.time()[3]))
+set.seed(3)
 #==============================
 # Library ----------
+
+#install.packages("foreach")
+#install.packages("doParallel")
+#install.packages("parallel")
+#install.packages("iterators")
+#install.packages("modeest")
+
 
 library(foreach)
 library(doParallel)
@@ -36,7 +43,7 @@ numobservations = nrow(mydata)
 
 #Simulated annealing parameters ---------
 temp = 10
-temp_min = 1E-25
+temp_min = 1E-5
 alpha = 0.97
 number_of_neighbors = 5
 Boltz_const = 80
