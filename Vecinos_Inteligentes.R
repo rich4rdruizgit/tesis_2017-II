@@ -22,8 +22,10 @@ dir.create(pathProject)
 
 # Cargando los datos Data ---------
 
-load("datos_Ent.rdata")
-load("datos_test.rda")
+load("datos.rda")
+load("datos_t.rda")
+load("datos_nor.rda")
+
 
 
 
@@ -63,16 +65,64 @@ all_variables_clusters <- list()
 cl<-makeCluster(detectCores()-1)
 registerDoParallel(cl)
 
-
-
-
-normalizacion <- function(mdataset){
-  print(NCOL(mdataset))
-  print("numero de cool")
-  for(i in 3:(NCOL(mdataset)-4)){
-    mdataset[1:NROW(mdataset),i]=(mdataset[1:NROW(mdataset),i]-min(mdataset[,i]))/(max(mdataset[,i])-min(mdataset[,i]))
+#-----------------------Promedio de cada Segmento con su respectivo identificador con modas -------
+promedio_segmento <- function(variables, segment,id){
+  promed<-colMeans(variables[[segment]][,1:10])
+  modas<-apply(variables[[segment]][,11:14], 2, mlv,  method = "mfv")
+  seg_pro_mod<-as.array(promed)
+  for(i in 1:length(modas)){
+    seg_pro_mod <- c(seg_pro_mod,modas[[i]]$M)
   }
-  return(mdataset)
+  seg_pro_mod <- c(seg_pro_mod,id)
+  return(seg_pro_mod)
 }
-mydatan <- normalizacion(mydata)
+
+
+
+#----------------Formula de distancia -------------------
+formulirri <- function(seg_pro_mod,seg_pro_mod2){
+  sum=0
+  for(i in 1:(length(seg_pro_mod)-4)){
+    sum= sum + ((seg_pro_mod[i]-seg_pro_mod2[i])^2)
+  }
+  sum2=0
+  for(i in 11:length(seg_pro_mod)){
+    if(seg_pro_mod[i]!=seg_pro_mod2[i])
+    {
+      sum2=sum2+1
+    }
+  }
+  dist_euquidiana<-sqrt((sum+sum2))
+  return (dist_euquidiana)
+}
+
+l=1
+for (segment in 1:numsegments){
+  #browser("Llenando psi")
+  numyears = mydata[l,2]
+  p=array(NA,dim=c(numyears))
+  v=array(NA,dim=c(numyears,numvariables))
+  for (year in 1:numyears){
+    p[year]=mydata[l,psi_column_position]
+    for (variable in 1:numvariables){
+      v[year,variable] = mydata[l,variable+psi_column_position]
+    }
+    l=l+1
+  }
+  variables[[segment]] = v
+  id_seg<-mydata[l-1,1]
+  variables_promediadas[[segment]] <- promedio_segmento(variables,segment,id_seg)
+  psi[[segment]] = p
+}
+
+matriz_distancia<-matrix(1:13498276,nrow=3674,ncol=3674,byrow = TRUE)
+for(i in 1:NROW(matriz_distancia)){
+  for(j in 1:NCOL(matriz_distancia)){
+    matriz_distancia[i,j] = formulirri(variables_promediadas[[i]],variables_promediadas[[j]])
+  } 
+}
+
+print("fin")
+
+
 
