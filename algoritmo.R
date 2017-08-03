@@ -397,24 +397,59 @@ remove_high_vif <- function(fit,newnames){
 }
 
 #-----------Generate a neighbor clusters-----------
+#generate_neighbor_clusters <- function(clusters){
+   # browser("Generar grupos vecinos")
+#    repeat{
+#       all_nb_neighbors <<- all_nb_neighbors + 1
+#        positions <- sample(1:length(clusters), num_changes, replace=F)
+#        for(i in 1:length(positions) ){
+#            position = positions[i]
+#            old_cluster = clusters[position]
+#            repeat{ # repeat if new cluster is still the same old cluster 
+#                new_cluster = sample(1:numclusters, 1)
+#                if (new_cluster != old_cluster) {break}
+#            }
+#            clusters[position] = new_cluster
+#        }
+#        if(valid_clusters(clusters)){break}
+#    }
+#    return(clusters)
+#}
+
+
+#-----------Generate a neighbor clusters-----------
 generate_neighbor_clusters <- function(clusters){
-    # browser("Generar grupos vecinos")
-    repeat{
-        all_nb_neighbors <<- all_nb_neighbors + 1
-        positions <- sample(1:length(clusters), num_changes, replace=F)
-        for(i in 1:length(positions) ){
-            position = positions[i]
-            old_cluster = clusters[position]
-            repeat{ # repeat if new cluster is still the same old cluster 
-                new_cluster = sample(1:numclusters, 1)
-                if (new_cluster != old_cluster) {break}
-            }
-            clusters[position] = new_cluster
-        }
-        if(valid_clusters(clusters)){break}
-    }
-    return(clusters)
+  matriz_similitud <- load(file = "matriz_distancia.RData")# se carga la matriz de similitud
+  vecinos<- list()
+  clusters_filtro <- list()
+  clusters_filtro <- filtrar_cluster(clusters) # filtro por cluster
+  
+  all_nb_neighbors <<- all_nb_neighbors + 1 # numero de vecino
+  for(j in 1:number_of_neighbors){ # de 1 hasta valores aleatorios
+    W <- tweak_inteligente(clusters_filtro,num_changes,matriz_similitud)
+    calculate_BIC_overall(w)
+    vecinos <- w
+  }
+  return(vecinos)
 }
+#------------- Tweak Inteligente ------------------
+tweak_inteligente <- function(clusters_filtro,num_changes,matriz){
+  while(c_rand<- sample(1:numclusters,1,replace = FALSE)!=i){break} #i.	Elección al azar de un clúster
+  intruso <- sample(1:length(clusters_filtro[[c_rand]]),1, replace=F) #ii.	Elección de un segmentos ( intruso ) de clúster(a)
+  intruso_pertenece <- analisis_intruso(intruso,clusters_filtro)#iii.	Analizar en que clúster debe ir el intruso
+  #iv.	Reubicar el intruso en su nuevo clúster
+  memoria_intruso[j]<- intruso#v.	Guardar en la memoria de intrusos el segmentos reasignado
+  return(clusters_filtro)
+}
+#------------- Analisis de cluster para el intruso----------------
+analisis_intruso<-function(intruso,clusters_filtro){
+  el_peor<-max(matriz_distancia[intruso,])
+  for(i in 1:length(clusters_filtro)){
+    if()
+  }
+  return (cluster_pertenece)
+}
+
 
 #-------------Calculate BIC--------------------
 calculate_BIC_overall <- function(fits){
