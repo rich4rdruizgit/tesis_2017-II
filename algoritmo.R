@@ -84,8 +84,8 @@ normalizacion <- function(mdataset){
     }
     return(mdataset)
 }
+
 mydata <- normalizacion(mydata)
-print("normalizo")
 
 #-----------------------Promedio de cada Segmento con su respectivo identificador con modas -------
 promedio_segmento <- function(variables, segment,id){
@@ -99,22 +99,25 @@ promedio_segmento <- function(variables, segment,id){
     return(seg_pro_mod)
 }
 
-print("cargo promedio")
+
 
 #----------------Formula de distancia -------------------
 formulirri <- function(seg_pro_mod,seg_pro_mod2){
+  
     sum=0
-    for(i in 1:(length(seg_pro_mod)-4)){
+    for(i in 1:(length(seg_pro_mod)-5)){
         sum= sum + ((seg_pro_mod[i]-seg_pro_mod2[i])^2)
     }
     sum2=0
-    for(i in 11:length(seg_pro_mod)){
+    for(i in 12:length(seg_pro_mod)-1){ #se le quito la ultima para no contar con el id del segmento
         if(seg_pro_mod[i]!=seg_pro_mod2[i])
         {
             sum2=sum2+1
         }
     }
+  
     dist_euquidiana<-sqrt((sum+sum2))
+    
     return (dist_euquidiana)
 }
 
@@ -133,10 +136,12 @@ for (segment in 1:numsegments){
     }
     variables[[segment]] = v
     id_seg<-mydata[l-1,1]
+   
     variables_promediadas[[segment]] <- promedio_segmento(variables,segment,id_seg)
     psi[[segment]] = p
 }
-
+variables_promediadas[[1]]
+variables_promediadas[[2]]
 #------------------Matriz de similitud --------------
 matriz_distancia<-matrix(1:13498276,nrow=3674,ncol=3674,byrow = TRUE)
 for(i in 1:NROW(matriz_distancia)){
@@ -144,7 +149,8 @@ for(i in 1:NROW(matriz_distancia)){
         matriz_distancia[i,j] = formulirri(variables_promediadas[[i]],variables_promediadas[[j]])
     } 
 }
-
+save(matriz_distancia,file = "matrizDistancia.rda")
+readline("esperemos q funcione")
 print("cargo funcion")
 #------------------Generando orden en la asignacion de cluster-----------
 generate_order_cluster <- function(){
@@ -170,7 +176,7 @@ generate_random_cluster <- function(segmentos){
     return (clusters)
 }
 
-print("cargo baraja")
+
 #------------------ Lo de ellos ------------
 #-------------calculation for kmax---------------------
 cluster_max <- function(matrix_data,n){
@@ -197,7 +203,7 @@ cluster_max <- function(matrix_data,n){
         }
         
         result <- k_max #useful if n is 1
-        browser("Hola k max")
+       
         #if it still some segments, we create a matrix with the rest of the data (without 0)
         while(sum(m[,2])!=0){
             m <- subset(m, m[,2] != 0) #delete lines with 0
@@ -793,7 +799,7 @@ for (numclusters in min_clusters:max_clusters){
         best_clusters <- generate_order_cluster()
         
         best_clusters <- generate_random_cluster(best_clusters)
-        readline("pausa alg")
+        
         
         #best_clusters <- generate_random_cluster() #generate clusters initial randomly
         #this loop is to get the fit with remove vif function
