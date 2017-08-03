@@ -396,6 +396,28 @@ remove_high_vif <- function(fit,newnames){
     return (newnames)
 }
 
+
+
+
+#---------------Filtrar Clusters Algoritmo-------------------
+filtrar_cluster <-function(best_clusters){
+  
+  clusters_filtrado<-list()
+  
+  for(i in 1:length( levels(as.factor(best_clusters)))){
+    j=1
+    clusters_filtrado[[i]]<-0
+    while(j<numsegments){
+      if(best_clusters[j]==i){
+        clusters_filtrado[[i]]=rbind(clusters_filtrado[[i]], c(j,i))
+      }
+      j=j+1
+    }
+    
+  }
+  return (clusters_filtrado)
+}
+
 #-----------Generate a neighbor clusters-----------
 #generate_neighbor_clusters <- function(clusters){
    # browser("Generar grupos vecinos")
