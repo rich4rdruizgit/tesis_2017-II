@@ -28,8 +28,6 @@ load("datos_nor.rda")
 load("matriz_distanciaf.rda")
 
 
-
-
 # inicializando variables ---------
 variable_names = c("age","aadt","trucks","elevation","precip", "min_temp", "max_temp", "wet_days", "freeze_thaw", "rut_depth", "factor(number_of_lanes)", "factor(sys_id)","factor(f_class)","factor(category)")
 psi_column_position = which(colnames(mydata) == "psi")

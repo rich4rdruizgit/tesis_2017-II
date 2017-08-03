@@ -180,7 +180,7 @@ generate_random_cluster <- function(segmentos){
 #------------------ Lo de ellos ------------
 #-------------calculation for kmax---------------------
 cluster_max <- function(matrix_data,n){
-    browser("K max")
+  
     if(n>nrow(matrix_data)){
         k_max <- 0
         result <- k_max
