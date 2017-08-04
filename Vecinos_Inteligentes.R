@@ -3,7 +3,7 @@
 #limpia objectos del espacio de trabajo
 rm(list=ls(all=TRUE))
 
-#asignacio de semilla 
+#asignacion de semilla 
 set.seed(3)
 
 
@@ -25,7 +25,9 @@ dir.create(pathProject)
 load("datos.rda")
 load("datos_t.rda")
 load("datos_nor.rda")
-load("matriz_distanciaf.rda")
+load("matrizDistancia.rda")
+load("log_data.rda")
+load("list_variables.rda")
 
 
 # inicializando variables ---------
@@ -454,19 +456,7 @@ calcul_BIC_combinaison <- function(comb, data_c){
 #-------------Print parameters--------------------
 print_parameters <- function(){
   write(paste("########### Configuration ###########"),file=output_opt_file,append=TRUE)
-  write(paste("psi_column_position = ",psi_column_position),file=output_opt_file,append=TRUE)
-  write(paste("numvariables = ",numvariables),file=output_opt_file,append=TRUE)
-  write(paste("numsegments = ",numsegments),file=output_opt_file,append=TRUE)
-  write(paste("numobservations = ",numobservations),file=output_opt_file,append=TRUE)
-  write(paste("numclusters = ",numclusters),file=output_opt_file,append=TRUE)
-  write(paste("max_clusters = ",max_clusters),file=output_opt_file,append=TRUE)
-  write(paste("min_observations_cluster = ",min_observations_cluster),file=output_opt_file,append=TRUE)
-  write(paste("num_changes = ",num_changes),file=output_opt_file,append=TRUE)
-  write(paste("Boltzmann constant = ", Boltz_const),file=output_opt_file,append=TRUE)
-  write(paste("temp = ",temp),file=output_opt_file,append=TRUE)
-  write(paste("temp_min = ",temp_min),file=output_opt_file,append=TRUE)
-  write(paste("alpha = ",alpha),file=output_opt_file,append=TRUE)
-  write(paste("number_of_neighbors = ",number_of_neighbors),file=output_opt_file,append=TRUE)
+ 
 }
 
 #-------------Print BIC values--------------------
@@ -683,17 +673,9 @@ rename_best_folder <- function(){
   }
 }
 
-#==============================
-# RUN CALIBRATION-----------
-#==============================
-
-#max_clusters = cluster_max(mydata,min_observations_cluster)
-
-print("inicia algoritmo")
-for (numclusters in min_clusters:max_clusters){
-  all_nb_neighbors <<- 0
-  dir.create(paste(pathProject,"/K=",numclusters,sep=""))
-  output_opt_file = paste(pathProject, "/K=",numclusters,"/Optimization Info, numclusters ",numclusters,".txt",sep="")
+variables_salidas <- function(){
+ 
+  output_opt_file =paste(pathProject, "/K=",numclusters,"/Optimization Info, numclusters ",numclusters,".txt",sep="")
   output_members_file = paste(pathProject, "/K=",numclusters,"/Membership, numclusters ",numclusters,".txt",sep="")
   output_betas_file = paste(pathProject, "/K=",numclusters,"/Betas, numclusters ",numclusters,".txt",sep="")
   output_comprehensive_betas_file = paste(pathProject, "/K=",numclusters,"/Comprehensive file for betas, numclusters ",numclusters,".csv",sep="")
@@ -704,13 +686,45 @@ for (numclusters in min_clusters:max_clusters){
   output_datatest_file_predicted_psi <- paste(pathProject, "/K=",numclusters,"/Test dataset with predicted psi and memberships, numclusters ",numclusters,".csv",sep="")
   output_data_file_predicted_psi <- paste(pathProject, "/K=",numclusters,"/Training dataset with predicted psi and memberships, numclusters ",numclusters,".csv",sep="")
   
-  start_time = Sys.time()   
-  print_parameters()
-  profile <- data.frame()
   
+}
+
+valid_clusters <- function(clusters){
+  load("list_variables.rda")
+  counter = 0
+  for(i in 1:numclusters){
+    for (j in 1:length(clusters)){
+      if(clusters[j] == i){
+       
+        counter = counter + nrow(variables[[j]])
+        
+      }
+    }
+    if(counter < min_observations_cluster){
+      return (FALSE);
+    }
+    counter = 0
+  }
+  return(TRUE)
+}
+
+#==============================
+# RUN CALIBRATION-----------
+#==============================
+
+#max_clusters = cluster_max(mydata,min_observations_cluster)
+
+print("inicia algoritmo")
+for (numclusters in min_clusters:max_clusters){
+  all_nb_neighbors <<- 0
+  dir.create(paste(pathProject,"/K=",numclusters,sep=""))
+  output_opt_file =paste(pathProject, "/K=",numclusters,"/Optimization Info, numclusters ",numclusters,".txt",sep="")
+  start_time = Sys.time()   
+ 
+  profile <- data.frame()
+
   repeat{ # Repeat while significance is not OK
     best_clusters <- generate_order_cluster()
-    
     best_clusters <- generate_random_cluster(best_clusters)
     
     
@@ -719,28 +733,17 @@ for (numclusters in min_clusters:max_clusters){
     #======================================
     fits<-list()
     for(cluster in 1:numclusters){
-      #browser("Primer for")
-      #funciones de poweeeeeeer
+
       mydata_cluster <- create_my_data_cluster(cluster, best_clusters)
-      out_clusters_file<-capture.output(mydata_cluster)
-      cat(out_clusters_file,file="D:/Universidad/Tesis/Ante- Proyecto/Paper_3/saluda_cluster.txt",sep="", append = FALSE,fill = TRUE)
-      #print(best_clusters)
-      mydata_cluster_log <- create_my_data_cluster_log(mydata_cluster)
-      out_clusters_file_log<-capture.output(mydata_cluster_log)
-      cat(out_clusters_file_log,file="D:/Universidad/Tesis/Ante- Proyecto/Paper_3/saluda_cluster_log.txt",sep="", append = FALSE,fill = TRUE)
-      
-      
       newnames <- remove_categorical_variable_one_value(mydata_cluster_log)
-      #print(newnames)
+ 
       repeat{
-        #browser("primer repeat")
-        #out<-capture.output (newnames)
-        #cat(out,"richasr.txt",append = FALSE,fill = TRUE)
+
         names_without_na <- gsub("NA + ","",gsub(" + NA","",paste(newnames, collapse=" + "),fixed = TRUE),fixed = TRUE)
-        #print(names_without_na)
+    
         tryCatch({
           fit <- lm(paste("psi ~ ",names_without_na), data=mydata_cluster_log)
-          #print(fit)
+     
         }, error = function(ex) {return(NULL)})
         if(!exists("fit")){
           return(NULL)
@@ -954,14 +957,7 @@ for (numclusters in min_clusters:max_clusters){
   best_fits <- fits
   print("###############################")
   print(best_fits)
-  print_comprehensive_tab(best_fits, all_variables_clusters)
-  estm_log_psi_datatest <- estimate_log_psi(best_fits,best_clusters,FALSE)
-  estm_log_psi_data <- estimate_log_psi(best_fits,best_clusters,TRUE)
-  print_overfitting(best_fits, estm_log_psi_data, TRUE)
-  print_overfitting(best_fits, estm_log_psi_datatest, FALSE)
-  print_rmse(best_fits, best_clusters, estm_log_psi_datatest)
-  print_predicted_psi(estm_log_psi_datatest, best_clusters, FALSE)
-  print_predicted_psi(estm_log_psi_data, best_clusters, TRUE)
+  
 }
 create_plot_best_nb_clusters()
 rename_best_folder()
