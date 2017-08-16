@@ -68,22 +68,20 @@ registerDoParallel(cl)
 
 
 
-generate_order_cluster <- function(){
+
+
+#------------------metodo para asignar clusters en baraja------
+generate_random_cluster <- function(){
   j=1
-  clusters = rep(0,numsegments)
+  segmentos = rep(0,numsegments)
   for(i in 1:numsegments){
-    clusters[i] <- j
+    segmentos[i] <- j
     j <- j+1
     if(j==numclusters+1){
       j<-1
     }
   }
-  return (clusters)
-}
-
-#------------------metodo para asignar clusters en baraja------
-generate_random_cluster <- function(segmentos){
-  clusters = rep(0,numsegments)
+   clusters = rep(0,numsegments)
   positions <- sample(1:numsegments, numsegments, replace=F)
   for(i in 1:numsegments){
     clusters[positions[i]]<- segmentos[i]
@@ -689,24 +687,58 @@ variables_salidas <- function(){
   
 }
 
-valid_clusters <- function(clusters){
-  load("list_variables.rda")
-  counter = 0
-  for(i in 1:numclusters){
-    for (j in 1:length(clusters)){
-      if(clusters[j] == i){
-       
-        counter = counter + nrow(variables[[j]])
-        
-      }
-    }
-    if(counter < min_observations_cluster){
-      return (FALSE);
-    }
-    counter = 0
+BIC_segmentos<- function(cluster_temp){
+  newnames <- remove_categorical_variable_one_value(cluster_temp) #obtiene los nombres de las variables explicativas
+  mydata_temp <- cluster_temp   #realiza una copia para manipular los datos
+  
+  id_seg_tem<-mydata_temp$sample_id[1]  #saca el identificador del primer elemento 
+  segs_individuales <- mydata_temp[which(mydata_temp$sample_id== id_seg_tem), ] #saca los segmentos segun el identificador 
+  mydata_temp <- mydata_temp[-c(which(mydata_temp$sample_id== id_seg_tem)), ] #elimina los segmentos de la copia de datos
+  
+ 
+  
+  tryCatch({
+    fit <- lm(paste("psi ~ ",newnames), data=segs_individuales)
+  }, error = function(ex) {return(NULL)})
+  if(!exists("fit")){
+    return(NULL)
   }
-  return(TRUE)
+    bic_temp <-BIC(fit)
+    
+    print(bic_temp)
+  
+  
 }
+
+bic_Grupos <- function(grupos_p){
+  
+  newnames <- remove_categorical_variable_one_value(mydata_cluster_log)
+  print(length(grupos_p))
+ for(i in 1:length(grupos_p)){
+   
+    tryCatch({
+      fit <- lm(paste("psi ~ ",newnames), data=grupos_p[[i]])
+    }, error = function(ex) {return(NULL)})
+    if(!exists("fit")){
+      return(NULL)
+    }
+  if(i==1){bics_grupos <-BIC(fit) }
+   else
+     bics_grupos <- c(bics_grupos,BIC(fit))
+ }
+  
+  
+  
+  return(bics_grupos)
+}
+
+
+mal_vecino<- function(){
+  
+  
+  
+}
+
 
 #==============================
 # RUN CALIBRATION-----------
@@ -717,251 +749,38 @@ valid_clusters <- function(clusters){
 print("inicia algoritmo")
 for (numclusters in min_clusters:max_clusters){
   all_nb_neighbors <<- 0
-  dir.create(paste(pathProject,"/K=",numclusters,sep=""))
-  output_opt_file =paste(pathProject, "/K=",numclusters,"/Optimization Info, numclusters ",numclusters,".txt",sep="")
-  start_time = Sys.time()   
  
-  profile <- data.frame()
 
-  repeat{ # Repeat while significance is not OK
-    best_clusters <- generate_order_cluster()
-    best_clusters <- generate_random_cluster(best_clusters)
+  repeat{ 
     
+    best_clusters <- generate_random_cluster()
     
-    #best_clusters <- generate_random_cluster() #generate clusters initial randomly
-    #this loop is to get the fit with remove vif function
-    #======================================
-    fits<-list()
+     fits<-list()
+    grupos_p<-list()
+    #separa los clusters y los agrega en grupos_p
     for(cluster in 1:numclusters){
-
       mydata_cluster <- create_my_data_cluster(cluster, best_clusters)
-      newnames <- remove_categorical_variable_one_value(mydata_cluster_log)
- 
-      repeat{
+      mydata_cluster_log <- create_my_data_cluster_log(mydata_cluster)
+    #  BIC_segmentos( mydata_cluster_log)
+     # newnames <- remove_categorical_variable_one_value(mydata_cluster_log)
+      grupos_p[[cluster]] <- create_my_data_cluster(cluster, best_clusters)
+      #newnames <- remove_categorical_variable_one_value(mydata_cluster_log)
 
-        names_without_na <- gsub("NA + ","",gsub(" + NA","",paste(newnames, collapse=" + "),fixed = TRUE),fixed = TRUE)
-    
-        tryCatch({
-          fit <- lm(paste("psi ~ ",names_without_na), data=mydata_cluster_log)
-     
-        }, error = function(ex) {return(NULL)})
-        if(!exists("fit")){
-          return(NULL)
-        }
-        old_newnames <- newnames
-        newnames <- remove_high_vif(fit, newnames)
-        if(length(grep("NA",paste(newnames))) == length(grep("NA",paste(old_newnames)))){break}
-      } #termina segundo repeat
-      comb_name <- combination(newnames[grep("NA",paste(newnames), invert=TRUE)])
-      tab_best_BIC <- calcul_BIC_combinaison(comb_name, mydata_cluster_log)
-      
-      #check level of signficance
-      valid = FALSE
-      p=1
-      repeat{
-        #browser("segundo repeat")
-        var_names <- paste(comb_name[[tab_best_BIC[p,1]]],collapse = "+")
-        fit <- lm(paste("psi ~ ",var_names), data=mydata_cluster_log)
-        p_values <- coef(summary(fit))[,4] #check pvalue
-        if(max(p_values) > level_of_significance){
-          valid = FALSE
-        }else{
-          valid = TRUE
-        }
-        if(valid){break}
-        p = p + 1
-        if(p > nrow(tab_best_BIC)){ return (NULL) }
-      }
-      fits[[cluster]] <- fit
     }
-    #======================================
-    if(!is.null(fits)){break}
+ bics_grup<- bic_Grupos(grupos_p)
+ 
+ #mal_ vecino
+pos_men<-which.max(bics_grup) #obtiene el grupo con mayor BIC 
+pos_alea<-sample(1:length(grupos_p),1) 
+while(pos_alea==pos_men){
+   pos_alea<-sample(1:length(grupos_p),1)} # no sale del ciclo hasta que obtenga una pocision que sea difente al MAX
+
+
+
+
   }
-  #Aqui terminar el loop de arriba :;
   
-  best_eval <- calculate_BIC_overall(fits)
-  print_optimization(0, best_eval[1], best_eval[2], best_eval[3]) #aqui voy
-  j = 1
-  while (temp > temp_min){
-    #browser("primer while")
-    i = 1
-    while (i <= number_of_neighbors){ #number of neighbors
-      repeat{ # Repeat while significance is not OK
-        neighbor_clusters <- generate_neighbor_clusters(best_clusters)
-        #this loop is to get the fit with remove vif function
-        #======================================
-        fits<-list()
-        for(cluster in 1:numclusters){
-          mydata_cluster <- create_my_data_cluster(cluster, neighbor_clusters)
-          mydata_cluster_log <- create_my_data_cluster_log(mydata_cluster)
-          newnames <- remove_categorical_variable_one_value(mydata_cluster_log)
-          repeat{
-            names_without_na <- gsub("NA + ","",gsub(" + NA","",paste(newnames, collapse=" + "),fixed = TRUE),fixed = TRUE)
-            tryCatch({
-              fit <- lm(paste("psi ~ ",names_without_na), data=mydata_cluster_log)
-            }, error = function(ex) {return(NULL)})
-            if(!exists("fit")){
-              return(NULL)
-            }
-            old_newnames <- newnames
-            newnames <- remove_high_vif(fit, newnames)
-            if(length(grep("NA",paste(newnames))) == length(grep("NA",paste(old_newnames)))){break}
-          }
-          comb_name <- combination(newnames[grep("NA",paste(newnames), invert=TRUE)])
-          tab_best_BIC <- calcul_BIC_combinaison(comb_name, mydata_cluster_log)
-          
-          #check level of significance
-          valid = FALSE
-          p=1
-          repeat{
-            var_names <- paste(comb_name[[tab_best_BIC[p,1]]],collapse = "+")
-            fit <- lm(paste("psi ~ ",var_names), data=mydata_cluster_log)
-            p_values <- coef(summary(fit))[,4] #check pvalue
-            if(max(p_values) > level_of_significance){
-              valid = FALSE
-            }else{
-              valid = TRUE
-            }
-            if(valid){break}
-            p = p + 1
-            if(p > nrow(tab_best_BIC)){ return (NULL) }
-          }
-          fits[[cluster]] <- fit
-        }
-        #======================================
-        if(!is.null(fits)){break}
-      }
-      neighbor_eval = calculate_BIC_overall(fits)
-      ap = acceptance_probability(best_eval[2],neighbor_eval[2],temp)
-      if(ap > runif(1, 0, 1)){
-        best_clusters = neighbor_clusters
-        best_fits = fits
-        #this loop is to get the fit with remove vif function
-        #======================================
-        fits<-list()
-        data_clusters<-list()
-        data_clusters_log<-list()
-        for(cluster in 1:numclusters){
-          mydata_cluster <- create_my_data_cluster(cluster, neighbor_clusters)
-          mydata_cluster_log <- create_my_data_cluster_log(mydata_cluster)
-          data_clusters[[cluster]] <- mydata_cluster
-          data_clusters_log[[cluster]] <- mydata_cluster_log
-          newnames <- remove_categorical_variable_one_value(mydata_cluster_log)
-          repeat{
-            names_without_na <- gsub("NA + ","",gsub(" + NA","",paste(newnames, collapse=" + "),fixed = TRUE),fixed = TRUE)
-            tryCatch({
-              fit <- lm(paste("psi ~ ",names_without_na), data=mydata_cluster_log)
-            }, error = function(ex) {return(NULL)})
-            if(!exists("fit")){
-              return(NULL)
-            }
-            old_newnames <- newnames
-            newnames <- remove_high_vif(fit, newnames)
-            if(length(grep("NA",paste(newnames))) == length(grep("NA",paste(old_newnames)))){break}
-          }
-          comb_name <- combination(newnames[grep("NA",paste(newnames), invert=TRUE)])
-          tab_best_BIC <- calcul_BIC_combinaison(comb_name, mydata_cluster_log)
-          
-          #check level of significance
-          valid = FALSE
-          p=1
-          repeat{
-            var_names <- paste(comb_name[[tab_best_BIC[p,1]]],collapse = "+")
-            fit <- lm(paste("psi ~ ",var_names), data=mydata_cluster_log)
-            p_values <- coef(summary(fit))[,4] #check pvalue
-            if(max(p_values) > level_of_significance){
-              valid = FALSE
-            }else{
-              valid = TRUE
-            }
-            if(valid){break}
-            p = p + 1
-            if(p > nrow(tab_best_BIC)){ return (NULL) }
-          }
-          fits[[cluster]] <- fit
-        }
-        #======================================
-        best_eval = neighbor_eval
-      }
-      i = i + 1
-    }
-    print_optimization(j, best_eval[1], best_eval[2], best_eval[3])
-    profile <- rbind(profile, c(j, best_eval[2]))
-    plot(profile[,2], type ="l", xlab="Iteration", ylab="BIC")
-    jpeg(output_plot_file)
-    plot(profile[,2], type ="l", col= "red", xlab="Iteration", ylab="BIC", main=paste("Number of clusters = ",numclusters))
-    dev.off()
-    temp = temp * alpha
-    j = j + 1
-    
   }
-  end_time = Sys.time()
-  write(paste(numclusters,"=",best_eval[2]),file=output_numcluster_file,append=TRUE)
-  print_time(start_time, end_time)
-  print_fits(best_fits)
-  write.csv(matrix(cbind(1:length(best_clusters),best_clusters), ncol =2, dimnames = list(NULL,c("Segment ID", "Cluster Membership"))),file=output_members_file)
-  write(paste("\nTotal number of valid neighbors tested =",(i-1)*(j-1)),output_opt_file,append=TRUE)
-  write(paste("\nTotal number of neighbors tested =",all_nb_neighbors),output_opt_file,append=TRUE)
-  
-  best<-best_fits
-  #this loop is to get the fit with remove vif function
-  #======================================
-  fits<-list()
-  data_clusters <- list()
-  data_clusters_log<-list()
-  for(cluster in 1:numclusters){
-    mydata_cluster <- create_my_data_cluster(cluster, best_clusters)
-    mydata_cluster_log <- create_my_data_cluster_log(mydata_cluster)
-    data_clusters[[cluster]] <- mydata_cluster
-    data_clusters_log[[cluster]] <- mydata_cluster_log
-    newnames <- remove_categorical_variable_one_value(mydata_cluster_log)
-    temp=1
-    repeat{
-      names_without_na <- gsub("NA + ","",gsub(" + NA","",paste(newnames, collapse=" + "),fixed = TRUE),fixed = TRUE)
-      tryCatch({
-        fit <- lm(paste("psi ~ ",names_without_na), data=mydata_cluster_log)
-      }, error = function(ex) {return(NULL)})
-      if(!exists("fit")){
-        return(NULL)
-      }
-      if(temp==1){
-        all_variables_clusters[[cluster]]<-names(fit$coefficients)
-      }
-      temp<-temp+1
-      old_newnames <- newnames
-      newnames <- remove_high_vif(fit, newnames)
-      if(length(grep("NA",paste(newnames))) == length(grep("NA",paste(old_newnames)))){break}
-    }
-    comb_name <- combination(newnames[grep("NA",paste(newnames), invert=TRUE)])
-    tab_best_BIC <- calcul_BIC_combinaison(comb_name, mydata_cluster_log)
-    
-    #check level of significance
-    valid = FALSE
-    p=1
-    repeat{
-      var_names <<- paste(comb_name[[tab_best_BIC[p,1]]],collapse = "+")
-      fit <- lm(paste("psi ~ ",var_names), data=mydata_cluster_log)
-      p_values <- coef(summary(fit))[,4] #check pvalue
-      if(max(p_values) > level_of_significance){
-        valid = FALSE
-      }else{
-        valid = TRUE
-      }
-      if(valid){break}
-      p = p + 1
-      if(p > nrow(tab_best_BIC)){ return (NULL) }
-    }
-    fits[[cluster]] <- fit
-  }
-  #======================================
-  best_fits <- fits
-  print("###############################")
-  print(best_fits)
-  
-}
-create_plot_best_nb_clusters()
-rename_best_folder()
-pdf(NULL)
 stopCluster(cl)
 
 
